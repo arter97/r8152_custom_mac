@@ -1318,14 +1318,29 @@ static int
 rtl8152_set_speed(struct r8152 *tp, u8 autoneg, u32 speed, u8 duplex,
 		  u32 advertising);
 
+// Do not include ':' within CUSTOM_MAC_ADDR
+#define CUSTOM_MAC_ADDR ""
+
 static int rtl8152_set_mac_address(struct net_device *netdev, void *p)
 {
 	struct r8152 *tp = netdev_priv(netdev);
 	struct sockaddr *addr = p;
 	int ret = -EADDRNOTAVAIL;
+	unsigned char buf[6];
+
+	BUILD_BUG_ON_MSG(sizeof(CUSTOM_MAC_ADDR) != (12 + 1),
+			 "Incorrect MAC address length");
 
 	if (unlikely(tp->rtk_enable_diag))
 		return -EBUSY;
+
+	ret = hex2bin(buf, CUSTOM_MAC_ADDR, 6);
+	if (ret == 0 && is_valid_ether_addr(buf)) {
+		netif_info(tp, probe, tp->netdev,
+			   "Using override MAC addr: %pM\n",
+			   buf);
+		memcpy(addr->sa_data, buf, 6);
+	}
 
 	if (!is_valid_ether_addr(addr->sa_data))
 		goto out1;
